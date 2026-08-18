@@ -1,48 +1,85 @@
 # EA Bot OPT Analyzer
 
-![EA Bot Analyzer Banner](https://via.placeholder.com/800x200?text=EA+Bot+Analyzer) <!-- Optional: Add a banner image for visual appeal, e.g., a screenshot of the sheet in action -->
+A Google Apps Script utility for reducing large MetaTrader 5 optimization exports into a smaller, reviewable set of candidate passes.
 
-A Google Apps Script embedded in a Sheet to summarize the top 50 profitable passes from MetaTrader 5 (MT5) OPT files (via CSV export). Inspired by Kali Linux pentests for vulnerability hunting in data and quantum computing for efficient pattern spotting—perfect for traders optimizing EA Bots on pairs like EURUSD H1.
+The project demonstrates **data filtering, dynamic column mapping, sorting, spreadsheet automation, and CSV export**. It is an analysis helper only; a profitable historical optimization pass does not imply future trading performance.
 
-This tool turns 17k+ lines of backtest results into actionable insights in seconds: Filter for Profit >0 and Profit Factor >1, sort by highest profit/lowest drawdown, and output a clean summary tab plus Drive CSV. No more manual scrolling—focus on strategy refinement or content creation instead!
+## What It Does
 
-## Features
-- **Quick Summaries**: Analyzes massive OPT CSVs for top 50 winners, highlighting metrics like Sharpe Ratio, Equity DD %, and parameters (stopLoss, takeProfit).
-- **Dynamic & Resilient**: Handles missing columns gracefully, case-insensitive tab names—cybersecurity-hardened for varying MT5 exports.
-- **Simple Workflow**: Copy-paste data into the 'Tester Optimizer Results' tab, run via custom menu—quantum-fast for repeatable tests.
-- **Community-Ready**: Fork for your Python integrations or ethical hacking twists on trading automation.
+The analyzer reads data from a Google Sheet tab named `Tester Optimizer Results` and:
 
-## Getting Started
-### Prerequisites
-- A Google account (free).
-- MT5 OPT file exported to CSV (via Strategy Tester > Optimization Results > Export to XML/CSV).
+1. Detects supported MT5 optimization columns dynamically.
+2. Requires `Profit` and `Profit Factor` for the core filter.
+3. Keeps rows where:
+   - `Profit > 0`
+   - `Profit Factor > 1`
+4. Sorts qualifying rows by highest profit, then lower equity drawdown when that metric is available.
+5. Selects up to the top 50 rows.
+6. Writes the result to a `TopProfitablePasses` sheet.
+7. Exports the selected rows to a timestamped CSV file in Google Drive.
 
-### Installation
-1. Open the Google Sheet template (link to your shared Sheet or instructions to create one).
-2. Go to Extensions > Apps Script > Paste the code from `ea_bot_analyzer.gs`.
-3. Save and authorize (safe—grants access to your Sheet/Drive only).
-4. Add the custom menu: Refresh the Sheet to see "EA Analyzer" in the top bar.
+## Supported Metrics
 
-### Usage
-1. Export your MT5 OPT to CSV.
-2. Paste the data (including headers) into the 'Tester Optimizer Results' tab—overwrite old data for new runs.
-3. Run: EA Analyzer > Run Profitable Passes (or from editor).
-4. Output: New 'TopProfitablePasses' tab with top 50, plus `profitable_passes.csv` in Google Drive.
-5. Repeat for next optimizations—same Sheet, fresh insights!
+When present in the source export, the script can include:
 
-Example: For EURUSD H1 backtests, spot trends in iBullishX/iBearishX without hours of sifting.
+- Pass
+- Profit
+- Profit Factor
+- Recovery Factor
+- Sharpe Ratio
+- Equity DD %
+- Trades
+- percRisk
+- stopLoss
+- takeProfit
+- iBullishX
+- iBearishX
 
-## Contributing
-Fork the repo, add features (e.g., Python ports for advanced charting), and submit a pull request—let's collaborate like a positive pentest team! Issues welcome for bugs or ideas.
+Missing optional columns are logged and skipped rather than causing the entire analysis to fail.
+
+## Setup
+
+1. Create or open a Google Sheet.
+2. Add a tab named `Tester Optimizer Results`.
+3. Open **Extensions > Apps Script**.
+4. Copy the contents of `EA-Bot-Analyzer.gs` into the Apps Script editor.
+5. Save the project and grant the required Sheets/Drive permissions.
+6. Reload the spreadsheet.
+
+The script adds an **EA Analyzer** menu to the spreadsheet.
+
+## Usage
+
+1. Export MT5 Strategy Tester optimization results to CSV.
+2. Import or paste the data, including headers, into `Tester Optimizer Results`.
+3. Choose **EA Analyzer > Analyze Profitable Passes**.
+4. Review the `TopProfitablePasses` sheet.
+5. Use the timestamped CSV in Google Drive if you need the reduced dataset outside Sheets.
+
+If the output sheet already exists, the script clears and reuses it instead of failing on repeated runs.
+
+## Engineering Notes
+
+This project is intentionally simple and transparent:
+
+- Column indexes are discovered from the header row rather than hard-coded positions.
+- Required metrics are validated before processing.
+- Optional metrics degrade gracefully when absent.
+- Repeated runs reuse the output worksheet.
+- CSV fields are escaped before export.
+- Logs provide basic troubleshooting context.
+
+## Limitations
+
+- The current ranking logic is deliberately basic and should not be treated as a trading strategy.
+- Historical optimization can overfit data.
+- Profit and Profit Factor alone are insufficient for evaluating live-trading risk.
+- Input column names must match the supported MT5 header names.
 
 ## License
-MIT License—free to use, modify, and share. See [LICENSE](LICENSE) for details.
 
-## Acknowledgments
-- Built with inspiration from K-LOVE's mission to encourage through tech.
-- Thanks to the Google Apps Script community for dynamic tools
-<argument name="citation_id">0</argument>
-.
-- God bless your journeys in cybersecurity, trading, and beyond!
+MIT License. See [LICENSE](LICENSE).
 
-Contact: [https://www.linkedin.com/in/casey-craft0316/] or open an issue here.
+## Purpose
+
+I built this to automate a repetitive data-reduction task: take a large optimization export, apply explicit rules, and create a much smaller dataset for human review and further analysis.
