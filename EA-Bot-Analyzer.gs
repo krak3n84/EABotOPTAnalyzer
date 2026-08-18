@@ -1,112 +1,163 @@
-// EA Bot Optimizer Analyzer - A Google Apps Script for filtering profitable MT5 EA passes
-// Inspired by Kali Linux pentests: Scans massive CSVs (17k+ lines) in seconds, like vulnerability hunting in data
-// Quantum twist: Dynamic and resilient to variations, for robust trading insights
-// Built with positive K-LOVE vibes - Reach people through efficient tech!
+// EA Bot Optimizer Analyzer
+// Google Apps Script for filtering and exporting selected MT5 optimization passes.
+
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('EA Analyzer')
+    .addItem('Analyze Profitable Passes', 'analyzeProfitablePasses')
+    .addToUi();
+}
 
 function analyzeProfitablePasses() {
   var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  
-  // Like a Kali scan: Log all sheet tabs to debug naming issues early
-  var allSheets = spreadsheet.getSheets().map(function(s) { return s.getName(); });
-  Logger.log('Available sheet tabs: ' + allSheets.join(', '));
-  
-  // Normalize for case-insensitivity - Handles lowercase/uppercase mismatches like a quantum superposition of states
-  var targetName = 'tester optimizer results'.toLowerCase();
+  var allSheets = spreadsheet.getSheets();
+  var targetName = 'tester optimizer results';
   var sheet = null;
-  spreadsheet.getSheets().forEach(function(s) {
-    if (s.getName().toLowerCase() === targetName) {
-      sheet = s;
+
+  Logger.log(
+    'Available sheet tabs: ' +
+      allSheets.map(function (s) { return s.getName(); }).join(', ')
+  );
+
+  allSheets.forEach(function (candidate) {
+    if (candidate.getName().trim().toLowerCase() === targetName) {
+      sheet = candidate;
     }
   });
-  
+
   if (!sheet) {
-    Logger.log('Error: Sheet not found! Expected lowercase-normalized "tester optimizer results". Check tabs.');
-    return;
+    throw new Error('Sheet not found. Expected a tab named "Tester Optimizer Results".');
   }
-  Logger.log('Processing sheet: ' + sheet.getName());
-  
-  // Grab data - Efficient like Python pandas, but in JS for Sheets
+
   var data = sheet.getDataRange().getValues();
-  var headers = data[0];
-  
-  // Desired columns for analysis - Customizable for your EA Bot metrics
-  var desiredColumns = ['Pass', 'Profit', 'Profit Factor', 'Recovery Factor', 'Sharpe Ratio', 'Equity DD %', 'Trades', 'percRisk', 'stopLoss', 'takeProfit', 'iBullishX', 'iBearishX'];
-  
-  // Map indices dynamically - Skips missing columns like an ethical hack avoiding false positives
+  if (data.length < 2) {
+    throw new Error('The input sheet does not contain any optimization rows.');
+  }
+
+  var headers = data[0].map(function (header) {
+    return String(header).trim();
+  });
+
+  var desiredColumns = [
+    'Pass',
+    'Profit',
+    'Profit Factor',
+    'Recovery Factor',
+    'Sharpe Ratio',
+    'Equity DD %',
+    'Trades',
+    'percRisk',
+    'stopLoss',
+    'takeProfit',
+    'iBullishX',
+    'iBearishX'
+  ];
+
   var columnMap = {};
-  desiredColumns.forEach(function(col) {
-    var idx = headers.indexOf(col);
-    if (idx !== -1) {
-      columnMap[col] = idx;
+  desiredColumns.forEach(function (columnName) {
+    var index = headers.indexOf(columnName);
+    if (index !== -1) {
+      columnMap[columnName] = index;
     } else {
-      Logger.log('Warning: Missing column - ' + col + '. Skipping it.');
+      Logger.log('Optional column not found: ' + columnName);
     }
   });
-  
-  var availableCols = Object.keys(columnMap);
-  if (availableCols.length === 0) {
-    Logger.log('Error: No matching columns found! Check your CSV headers.');
-    return;
+
+  var profitIndex = columnMap['Profit'];
+  var profitFactorIndex = columnMap['Profit Factor'];
+  if (profitIndex === undefined || profitFactorIndex === undefined) {
+    throw new Error('Required columns "Profit" and "Profit Factor" must be present.');
   }
-  
-  // Required columns check - Core for profitability filter, like a pentest validating exploits
-  var profitIdx = columnMap['Profit'];
-  var profitFactorIdx = columnMap['Profit Factor'];
-  if (profitIdx === undefined || profitFactorIdx === undefined) {
-    Logger.log('Error: Required columns Profit or Profit Factor missing!');
-    return;
-  }
-  
-  // Filter profitable rows - The heart of the script, spotting winners fast
-  var profitable = [];
+
+  var qualifyingRows = [];
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
-    var profit = parseFloat(row[profitIdx]);
-    var profitFactor = parseFloat(row[profitFactorIdx]);
-    if (profit > 0 && profitFactor > 1) {
-      profitable.push(row);
+    var profit = parseFloat(row[profitIndex]);
+    var profitFactor = parseFloat(row[profitFactorIndex]);
+
+    if (!isNaN(profit) && !isNaN(profitFactor) && profit > 0 && profitFactor > 1) {
+      qualifyingRows.push(row);
     }
   }
-  
-  if (profitable.length === 0) {
-    Logger.log('No profitable passes found. Keep optimizing—God’s got a plan!');
-    return;
-  }
-  
-  // Sort results - Highest profit first, then lowest drawdown (if available) - Quantum-optimized for best picks
-  var ddIdx = columnMap['Equity DD %'];
-  profitable.sort(function(a, b) {
-    var profitA = parseFloat(a[profitIdx]);
-    var profitB = parseFloat(b[profitIdx]);
-    if (profitB !== profitA) return profitB - profitA;
-    if (ddIdx !== undefined) {
-      var ddA = parseFloat(a[ddIdx]);
-      var ddB = parseFloat(b[ddIdx]);
-      return ddA - ddB;
+
+  var drawdownIndex = columnMap['Equity DD %'];
+  qualifyingRows.sort(function (a, b) {
+    var profitA = parseFloat(a[profitIndex]);
+    var profitB = parseFloat(b[profitIndex]);
+
+    if (profitB !== profitA) {
+      return profitB - profitA;
     }
+
+    if (drawdownIndex !== undefined) {
+      var drawdownA = parseFloat(a[drawdownIndex]);
+      var drawdownB = parseFloat(b[drawdownIndex]);
+
+      if (!isNaN(drawdownA) && !isNaN(drawdownB)) {
+        return drawdownA - drawdownB;
+      }
+    }
+
     return 0;
   });
-  
-  // Top 50 extraction - Expanded for deeper insights, like a Kali report highlighting more vulns
-  var top50 = profitable.slice(0, 50);
-  
-  // Build output - Dynamic for available columns, resilient to CSV variations
-  var output = [availableCols]; // Headers
-  
-  top50.forEach(function(row) {
-    var rowData = [];
-    availableCols.forEach(function(col) {
-      rowData.push(row[columnMap[col]]);
-    });
-    output.push(rowData);
+
+  var availableColumns = desiredColumns.filter(function (columnName) {
+    return columnMap[columnName] !== undefined;
   });
-  
-  // Create summary sheet - Your top 50 profitable passes, ready for content creation
-  var newSheet = spreadsheet.insertSheet('TopProfitablePasses');
-  newSheet.getRange(1, 1, output.length, output[0].length).setValues(output);
-  
-  // Export CSV - Backup your insights to Drive, like archiving pentest results
-  var blob = Utilities.newBlob(output.map(row => row.join(',')).join('\n'), 'text/csv', 'profitable_passes.csv');
-  DriveApp.createFile(blob);
-  Logger.log('Success! TopProfitablePasses sheet created (top 50) and CSV exported to Drive. Processed ' + availableCols.length + ' columns.');
+
+  var selectedRows = qualifyingRows.slice(0, 50);
+  var output = [availableColumns];
+
+  selectedRows.forEach(function (row) {
+    output.push(
+      availableColumns.map(function (columnName) {
+        return row[columnMap[columnName]];
+      })
+    );
+  });
+
+  var outputSheet = spreadsheet.getSheetByName('TopProfitablePasses');
+  if (!outputSheet) {
+    outputSheet = spreadsheet.insertSheet('TopProfitablePasses');
+  } else {
+    outputSheet.clearContents();
+  }
+
+  outputSheet
+    .getRange(1, 1, output.length, output[0].length)
+    .setValues(output);
+  outputSheet.setFrozenRows(1);
+  outputSheet.autoResizeColumns(1, output[0].length);
+
+  var timestamp = Utilities.formatDate(
+    new Date(),
+    Session.getScriptTimeZone(),
+    'yyyyMMdd_HHmmss'
+  );
+  var csv = output.map(function (row) {
+    return row.map(csvEscape).join(',');
+  }).join('\n');
+
+  var fileName = 'profitable_passes_' + timestamp + '.csv';
+  DriveApp.createFile(fileName, csv, MimeType.CSV);
+
+  Logger.log(
+    'Analysis complete. Reviewed ' + (data.length - 1) +
+    ' row(s), found ' + qualifyingRows.length +
+    ' qualifying row(s), and exported ' + selectedRows.length +
+    ' row(s) to ' + fileName + '.'
+  );
+}
+
+function csvEscape(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  var text = String(value);
+  if (/[",\n\r]/.test(text)) {
+    return '"' + text.replace(/"/g, '""') + '"';
+  }
+
+  return text;
 }
